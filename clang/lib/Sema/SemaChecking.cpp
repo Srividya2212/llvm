@@ -1938,24 +1938,17 @@ Sema::CheckBuiltinFunctionCall(FunctionDecl *FDecl, unsigned BuiltinID,
     if (Context.BuiltinInfo.isAuxBuiltinID(BuiltinID)) {
       assert(Context.getAuxTargetInfo() &&
              "Aux Target Builtin, but not an aux target?");
-      /*
-      'CheckTSBuiltinFunctionCall' function checks for an aux-target builtin and also validates it 
-      against the correct target. */
+      
       if (CheckTSBuiltinFunctionCall(
               Context.getAuxTargetInfo()->getTriple().getArch(),
               Context.BuiltinInfo.getAuxBuiltinID(BuiltinID), TheCall)) {
-                /*At this point, we know that the builtin is an aux-builtin and also checked.
-                  AUX builtins are not allowed to appear inside device code.
-                  To handle this, we use the notion of "deferred diagnostics", where we are compiling
-                  for the device, but we don't know that this function will be codegen'ed
-                  for device yet. So we create a diagnostic which is emitted if and when we
-                  realize that the function will be codegen'ed
-                */
-                if (getLangOpts().SYCLIsDevice) {
-                    SYCLDiagIfDeviceCode(TheCall->getBeginLoc(), diag::err_aux_target_builtin_in_device_code);
+                    
                     return ExprError();
-                }
-              }
+      } else {
+        if(getLangOpts().SYCLIsDevice) {
+          SYCLDiagIfDeviceCode(TheCall->getBeginLoc(), diag::err_aux_target_builtin_in_device_code);
+        }
+      }
         
     } else {
       if (CheckTSBuiltinFunctionCall(
