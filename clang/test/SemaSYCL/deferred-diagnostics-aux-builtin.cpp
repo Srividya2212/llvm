@@ -2,8 +2,6 @@
 // 
 //
 // Ensure that the SYCL diagnostics that are typically deferred are correctly emitted.
-#include <x86intrin.h>
-
 namespace std {
 class type_info;
 typedef __typeof__(sizeof(int)) size_t;
@@ -24,16 +22,17 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 void calledFromHost(void) {
   //These built-in functions are available for the x86-32 and x86-64 family of computers
   //This function returns a positive integer if the run-time CPU is of type cpuname and returns 0 otherwise.
-  __builtin_cpu_is(“skylake”);
+
+  __builtin_cpu_is("intel");
 }
 
 void calledFromHostWithInvalidBuiltinParam(void) {
-  __builtin_cpu_is(“testInvalidCPU”);
+  __builtin_cpu_is("testInvalidCPU");
 }
 
 // 
 void calledFromKernel(void) {
-  __builtin_cpu_is(“skylake”);
+  __builtin_cpu_is("skylake");
 }
 
 int main(int argc, char **argv) {
