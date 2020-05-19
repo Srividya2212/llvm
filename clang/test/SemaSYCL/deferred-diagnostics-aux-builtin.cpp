@@ -13,6 +13,7 @@ namespace sycl {
 
 template <typename name, typename Func>
 __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
+  // expected-note@+1 {{called by 'kernel_single_task<AName, (lambda}}
   kernelFunc();
 }
 
@@ -23,28 +24,27 @@ void calledFromHost(void) {
   //These built-in functions are available for the x86-32 and x86-64 family of computers
   //This function returns a positive integer if the run-time CPU is of type cpuname and returns 0 otherwise.
 
-  __builtin_cpu_is("intel");
+  //__builtin_cpu_is("intel");
+  __builtin_cpu_init ();
 }
 
 void calledFromHostWithInvalidBuiltinParam(void) {
-  __builtin_cpu_is("testInvalidCPU");
+  //__builtin_cpu_is("testInvalidCPU");
 }
 
 // 
-void calledFromKernel(void) {
-  __builtin_cpu_is("skylake");
-}
+
 
 int main(int argc, char **argv) {
 
   //This is host code. This will not be compiled for the device.
-  calledFromHost();
+  //calledFromHost();
 
   //calledFromHostWithInvalidBuiltinParam();
   
   cl::sycl::kernel_single_task<class AName>([]() {
     //SYCL device compiler will compile this kernel for a device as well as any functions that the kernel calls
-    calledFromKernel(); //expected-error {{ Device code must not have aux builtins in them }}
+    __builtin_cpu_init (); // expected-error {{ AUX target specific builtins should not be present in device code }}
   });
   return 0;
 }
