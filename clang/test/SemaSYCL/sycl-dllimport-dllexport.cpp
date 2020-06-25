@@ -24,6 +24,8 @@ int __declspec(dllexport) foo(int a) {
   return a;
 }
 
+int __declspec(dllexport) test();
+
 // CHECK: warning: __declspec attribute 'dllimport' is not supported
 int __declspec(dllimport) bar();
 
@@ -42,7 +44,8 @@ int  __declspec(dllexport) foo(int a) {
 }
 // expected-note@+1 {{'bar' declared here}}
 SYCL_EXTERNAL int __declspec(dllimport) bar();
-// expected-note@+2 {{previous attribute is here}}
+SYCL_EXTERNAL int __declspec(dllexport) xyz();
+  // expected-note@+2 {{previous attribute is here}}
 // expected-note@+1 {{previous declaration is here}}
 int __declspec(dllimport) foobar();
 int foobar()  // expected-warning {{'foobar' redeclared without 'dllimport' attribute: previous 'dllimport' ignored}}
@@ -62,6 +65,8 @@ int main() {
     foo(10);// expected-no-error
     bar(); // expected-error {{SYCL kernel cannot call a dllimport function}}
     foobar(); // expected-no-error
+    xyz();
+    test();
   });
   bar();  // expected-no-error
   return 0;

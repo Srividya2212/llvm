@@ -9371,8 +9371,9 @@ Sema::ActOnFunctionDeclarator(Scope *S, Declarator &D, DeclContext *DC,
         // (void) parameters, so we relax this to a warning.
         int DiagID =
             CC == CC_X86StdCall ? diag::warn_cconv_knr : diag::err_cconv_knr;
-        Diag(NewFD->getLocation(), DiagID)
-            << FunctionType::getNameForCallConv(CC);
+        if(getLangOpts().SYCLIsDevice)
+          SYCLDiagIfDeviceCode(D.getIdentifierLoc(), DiagID)
+              << FunctionType::getNameForCallConv(CC);
       }
     }
 
