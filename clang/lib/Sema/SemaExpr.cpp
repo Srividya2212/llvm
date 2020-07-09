@@ -229,6 +229,20 @@ bool Sema::DiagnoseUseOfDecl(NamedDecl *D, ArrayRef<SourceLocation> Locs,
                !checkAllowedSYCLInitializer(VD, /*CheckValueDependent =*/true))
         SYCLDiagIfDeviceCode(*Locs.begin(), diag::err_sycl_restrict)
             << Sema::KernelConstStaticVariable;
+      else if (IsConst && VD->hasGlobalStorage()) {
+        QualType Ty = VD->getType();
+        if (const auto *CAType = dyn_cast<ConstantArrayType>(Ty)) {
+          // First 3 words of OpConstantComposite encode: 1) word count &
+          // opcode, 2) Result Type and 3) Result Id. Max length of SPIRV
+          // instruction = 65535 words.
+          const int MaxNumElements = 65535 - 3;
+          int64_t arrayElements = CAType->getSize().getSExtValue();
+          if (arrayElements > MaxNumElements)
+            SYCLDiagIfDeviceCode(*Locs.begin(),
+                                 diag::err_array_num_elements_exceeded)
+                << Sema::KernelGlobalVariable;
+        }
+      }
     }
   }
 
