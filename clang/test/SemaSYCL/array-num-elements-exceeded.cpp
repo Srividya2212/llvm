@@ -8,10 +8,8 @@ __attribute__((sycl_kernel)) void kernel_single_task(Func kernelFunc) {
 }
 
 int main() {
-  double res;
-  kernel_single_task<class fake_kernel>([=]() mutable {
-    res = big[0]; // expected-error {{Global variable has a constant array with number of elements greater than OpConstantComposite can have (65532).Can the array be split?}}
+  kernel_single_task<class fake_kernel>([]() {
+    double res = big[0]; // expected-warning {{Due to SPIR-V intermediate format limitations, constant arrays with number of elements more than 65532 cannot be used in SYCL.You can workaround this limitation by splitting the array into a several ones}}
   });
-
   return 0;
 }
