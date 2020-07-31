@@ -1765,15 +1765,17 @@ class SyclKernelIntHeaderCreator : public SyclKernelFieldHandler {
 
   void addParam(const FieldDecl *FD, QualType ArgTy,
                 SYCLIntegrationHeader::kernel_param_kind_t Kind) {
+    assert((Kind != SYCLIntegrationHeader::kind_sampler &&
+            Kind != SYCLIntegrationHeader::kind_accessor) &&
+           "Kernel parameter should not be a Sampler or Accessor");
     uint64_t Size;
-    size_t paramCount = 1;
     const ConstantArrayType *CAT =
         SemaRef.getASTContext().getAsConstantArrayType(ArgTy);
     if (CAT)
       ArgTy = CAT->getElementType();
     Size = SemaRef.getASTContext().getTypeSizeInChars(ArgTy).getQuantity();
     Header.addParamDesc(Kind, static_cast<unsigned>(Size),
-                        static_cast<unsigned>(CurOffset), paramCount);
+                        static_cast<unsigned>(CurOffset), 1);
   }
 
 public:
@@ -1784,18 +1786,16 @@ public:
     Header.startKernel(Name, NameType, StableName, KernelObj->getLocation());
   }
 
-  size_t getParamCount(QualType FieldTy){
-    const auto *SamplerOrAccessorTy = FieldTy->getAsCXXRecordDecl();
+  unsigned getNumOpenCLParams(const CXXRecordDecl *SamplerOrAccessorTy) {
     assert(SamplerOrAccessorTy && "Sampler/Accessor type must be a C++ record type");
     CXXMethodDecl *InitMethod = getMethodByName(SamplerOrAccessorTy, InitMethodName);
     assert(InitMethod && "sampler/accessor must have __init method");
-    size_t paramCount = InitMethod->param_size();
-    return paramCount;
+    unsigned NumOpenCLParams;
+    return NumOpenCLParams = InitMethod->param_size();
   }
 
   bool handleSyclAccessorType(const CXXBaseSpecifier &BC,
                               QualType FieldTy) final {
-    size_t paramCount = getParamCount(FieldTy);                            
     const auto *AccTy =
         cast<ClassTemplateSpecializationDecl>(FieldTy->getAsRecordDecl());
     assert(AccTy->getTemplateArgs().size() >= 2 &&
@@ -1804,12 +1804,12 @@ public:
     int Dims = static_cast<int>(
         AccTy->getTemplateArgs()[1].getAsIntegral().getExtValue());
     int Info = getAccessTarget(AccTy) | (Dims << 11);
-    Header.addParamDesc(SYCLIntegrationHeader::kind_accessor, Info, CurOffset, paramCount);
+    Header.addParamDesc(SYCLIntegrationHeader::kind_accessor, Info, CurOffset,
+                        getNumOpenCLParams(AccTy));
     return true;
   }
 
   bool handleSyclAccessorType(FieldDecl *FD, QualType FieldTy) final {
-    size_t paramCount = getParamCount(FieldTy);
     const auto *AccTy =
         cast<ClassTemplateSpecializationDecl>(FieldTy->getAsRecordDecl());
     assert(AccTy->getTemplateArgs().size() >= 2 &&
@@ -1817,30 +1817,25 @@ public:
     int Dims = static_cast<int>(
         AccTy->getTemplateArgs()[1].getAsIntegral().getExtValue());
     int Info = getAccessTarget(AccTy) | (Dims << 11);
-    Header.addParamDesc(SYCLIntegrationHeader::kind_accessor, Info, CurOffset, paramCount);
+    Header.addParamDesc(SYCLIntegrationHeader::kind_accessor, Info, CurOffset,
+                        getNumOpenCLParams(AccTy));
     return true;
   }
   
   bool handleSyclSamplerType(FieldDecl *FD, QualType FieldTy) final {
-    size_t paramCount = getParamCount(FieldTy);
     const auto *SamplerTy = FieldTy->getAsCXXRecordDecl();
     assert(SamplerTy && "Sampler type must be a C++ record type");
     CXXMethodDecl *InitMethod = getMethodByName(SamplerTy, InitMethodName);
     assert(InitMethod && "sampler must have __init method");
-
     // sampler __init method has only one argument
+    assert((InitMethod->param_size() == 1) &&
+           "sampler __init method should have only one argument");
     const ParmVarDecl *SamplerArg = InitMethod->getParamDecl(0);
     assert(SamplerArg && "sampler __init method must have sampler parameter");
-    uint64_t Size;
-    QualType ArgTy = SamplerArg->getType();
-    const ConstantArrayType *CAT =
-        SemaRef.getASTContext().getAsConstantArrayType(ArgTy);
-    if (CAT)
-      ArgTy = CAT->getElementType();
-    Size = SemaRef.getASTContext().getTypeSizeInChars(ArgTy).getQuantity();
-
-    Header.addParamDesc(SYCLIntegrationHeader::kind_sampler, static_cast<unsigned>(Size),
-                        static_cast<unsigned>(CurOffset), paramCount);
+    Header.addParamDesc(SYCLIntegrationHeader::kind_sampler,
+                        static_cast<unsigned>(InitMethod->param_size()),
+                        static_cast<unsigned>(CurOffset),
+                        getNumOpenCLParams(SamplerTy));
     return true;
   }
 
@@ -2708,22 +2703,22 @@ void SYCLIntegrationHeader::emit(raw_ostream &O) {
        "the\n";
   O << "// corresponding source\n";
   O << "static constexpr\n";
-  O << "const bool kernel_param_used[] = {\n";
-  O << "  //PARAM_USED_TABLE_BEGIN \n";
+  O << "const bool param_omit_table[] = {\n";
+  O << "  //OMIT_TABLE_BEGIN  \n";
   for (unsigned I = 0; I < KernelDescs.size(); I++) {
     auto &K = KernelDescs[I];
     O << "  //--- " << K.Name << "\n";
     O << "  ";
     for (unsigned I = 0; I < K.Params.size(); I++) {
       auto &P = K.Params[I];
-      for (unsigned J = 0; J < P.Count; J++) {
-        O << "1";
-        O << ", ";
+      for (unsigned J = 0; J < P.NumOpenCLParams; J++) {
+        O << "0"
+          << ", ";
       }
     }
     O << "\n";
   }
-  O << "  //PARAM_USED_TABLE_END "
+  O << "  //OMIT_TABLE_END "
     << "\n";
   O << "  } \n\n";
 
@@ -2736,16 +2731,15 @@ void SYCLIntegrationHeader::emit(raw_ostream &O) {
   for (unsigned I = 0; I < KernelDescs.size(); I++) {
     auto &K = KernelDescs[I];
     O << "  //--- " << K.Name << "\n";
-    for (unsigned I = 0; I < K.Params.size(); I++) {
-      auto &P = K.Params[I];
+    for (const auto &P : K.Params) {
       std::string TyStr = paramKind2Str(P.Kind);
       O << "  { kernel_param_kind_t::" << TyStr << ", ";
       O << P.Info << ", " << P.Offset << ", ";
-      for (unsigned X = 0; X < P.Count; X++) {
+      for (unsigned X = 0; X < P.NumOpenCLParams; X++) {
         O << "("
-          << "kernel_param_used[" << CurIndex << "]"
+          << "param_omit_table[" << CurIndex << "]"
           << " << " << X << ")";
-        if (X < P.Count - 1)
+        if (X < P.NumOpenCLParams - 1)
           O << " | ";
         CurIndex = CurIndex + 1;
       }
@@ -2845,7 +2839,8 @@ void SYCLIntegrationHeader::startKernel(StringRef KernelName,
 }
 
 void SYCLIntegrationHeader::addParamDesc(kernel_param_kind_t Kind, int Info,
-                                         unsigned Offset, size_t Count) {
+                                         unsigned Offset,
+                                         unsigned NumOpenCLParams) {
   auto *K = getCurKernelDesc();
   assert(K && "no kernels");
   K->Params.push_back(KernelParamDesc());
@@ -2853,7 +2848,7 @@ void SYCLIntegrationHeader::addParamDesc(kernel_param_kind_t Kind, int Info,
   PD.Kind = Kind;
   PD.Info = Info;
   PD.Offset = Offset;
-  PD.Count = Count;
+  PD.NumOpenCLParams = NumOpenCLParams;
 }
 
 void SYCLIntegrationHeader::endKernel() {

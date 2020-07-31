@@ -336,7 +336,8 @@ public:
 
   /// Adds a kernel parameter descriptor to current kernel invocation
   /// descriptor.
-  void addParamDesc(kernel_param_kind_t Kind, int Info, unsigned Offset, size_t Count);
+  void addParamDesc(kernel_param_kind_t Kind, int Info, unsigned Offset,
+                    unsigned NumOpenCLParams);
 
   /// Signals that addition of parameter descriptors to current kernel
   /// invocation descriptor has finished.
@@ -358,8 +359,9 @@ private:
     int Info = 0;
     // Offset of the captured parameter value in the lambda or function object.
     unsigned Offset = 0;
-    // Count to capture number of parameters in Accessor/Sampler init method.
-    size_t Count = 1;
+    // NumOpenCLParams to capture number of parameters in Accessor/Sampler init
+    // method.
+    unsigned NumOpenCLParams = 1;
     KernelParamDesc() = default;
   };
 
