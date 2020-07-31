@@ -25,41 +25,57 @@
 // CHECK-NEXT: };
 //
 // CHECK: static constexpr
+// CHECK-NEXT: const bool param_omit_table[] = {
+// CHECK-NEXT:   //OMIT_TABLE_BEGIN
+// CHECK-NEXT:   //--- _ZTSZ4mainE12first_kernel
+// CHECK-NEXT:   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+// CHECK-NEXT:   //--- _ZTSN16second_namespace13second_kernelIcEE
+// CHECK-NEXT:   0, 0, 0, 0, 0, 0,
+// CHECK-NEXT:   //--- _ZTS12third_kernelILi1Ei5pointIZ4mainE1XEE
+// CHECK-NEXT:   0, 0, 0, 0, 0, 0,
+// CHECK-NEXT:   //--- _ZTS13fourth_kernelIJN15template_arg_ns14namespaced_argILi1EEEEE
+// CHECK-NEXT:   0, 0, 0, 0, 0,
+// CHECK-NEXT:   //--- _ZTSZ4mainE16accessor_in_base
+// CHECK-NEXT:   0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+// CHECK-NEXT:   //OMIT_TABLE_END
+// CHECK-NEXT:   }
+
+// CHECK: static constexpr
 // CHECK-NEXT: const kernel_param_desc_t kernel_signatures[] = {
 // CHECK-NEXT:   //--- _ZTSZ4mainE12first_kernel
-// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0, (kernel_param_used[0] << 0)},
-// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 1, 4, (kernel_param_used[1] << 0)},
-// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 8, (kernel_param_used[2] << 0)},
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 12, (kernel_param_used[3] << 0) | (kernel_param_used[4] << 1) | (kernel_param_used[5] << 2) | (kernel_param_used[6] << 3)},
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 24, (kernel_param_used[7] << 0) | (kernel_param_used[8] << 1) | (kernel_param_used[9] << 2) | (kernel_param_used[10] << 3)},
-// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 8, 40, (kernel_param_used[11] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0, (param_omit_table[0] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 1, 4, (param_omit_table[1] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 8, (param_omit_table[2] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 12, (param_omit_table[3] << 0) | (param_omit_table[4] << 1) | (param_omit_table[5] << 2) | (param_omit_table[6] << 3)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 24, (param_omit_table[7] << 0) | (param_omit_table[8] << 1) | (param_omit_table[9] << 2) | (param_omit_table[10] << 3)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 1, 40, (param_omit_table[11] << 0)},
 // CHECK-EMPTY:
 // CHECK-NEXT:   //--- _ZTSN16second_namespace13second_kernelIcEE
-// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0, (kernel_param_used[12] << 0)},
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 4, (kernel_param_used[13] << 0) | (kernel_param_used[14] << 1) | (kernel_param_used[15] << 2) | (kernel_param_used[16] << 3)},
-// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 8, 16, (kernel_param_used[17] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0, (param_omit_table[12] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 4, (param_omit_table[13] << 0) | (param_omit_table[14] << 1) | (param_omit_table[15] << 2) | (param_omit_table[16] << 3)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 1, 16, (param_omit_table[17] << 0)},
 // CHECK-EMPTY:
 // CHECK-NEXT:   //--- _ZTS12third_kernelILi1Ei5pointIZ4mainE1XEE
-// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0, (kernel_param_used[18] << 0)},
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 4, (kernel_param_used[19] << 0) | (kernel_param_used[20] << 1) | (kernel_param_used[21] << 2) | (kernel_param_used[22] << 3)},
-// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 8, 16, (kernel_param_used[23] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0, (param_omit_table[18] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 4, (param_omit_table[19] << 0) | (param_omit_table[20] << 1) | (param_omit_table[21] << 2) | (param_omit_table[22] << 3)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_sampler, 1, 16, (param_omit_table[23] << 0)},
 // CHECK-EMPTY:
 // CHECK-NEXT:   //--- _ZTS13fourth_kernelIJN15template_arg_ns14namespaced_argILi1EEEEE
-// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0, (kernel_param_used[24] << 0)},
-// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 4, (kernel_param_used[25] << 0) | (kernel_param_used[26] << 1) | (kernel_param_used[27] << 2) | (kernel_param_used[28] << 3)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0, (param_omit_table[24] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 6112, 4, (param_omit_table[25] << 0) | (param_omit_table[26] << 1) | (param_omit_table[27] << 2) | (param_omit_table[28] << 3)},
 // CHECK-EMPTY:
-// CHECK-NEXT:  //--- _ZTSZ4mainE16accessor_in_base
-// CHECK-NEXT:  { kernel_param_kind_t::kind_std_layout, 4, 0, (kernel_param_used[29] << 0)},
-// CHECK-NEXT:  { kernel_param_kind_t::kind_std_layout, 4, 4, (kernel_param_used[30] << 0)},
-// CHECK-NEXT:  { kernel_param_kind_t::kind_accessor, 4062, 8, (kernel_param_used[31] << 0) | (kernel_param_used[32] << 1) | (kernel_param_used[33] << 2) | (kernel_param_used[34] << 3)},
-// CHECK-NEXT:  { kernel_param_kind_t::kind_std_layout, 4, 20, (kernel_param_used[35] << 0)},
-// CHECK-NEXT:  { kernel_param_kind_t::kind_accessor, 4062, 24, (kernel_param_used[36] << 0) | (kernel_param_used[37] << 1) | (kernel_param_used[38] << 2) | (kernel_param_used[39] << 3)},
-// CHECK-NEXT:  { kernel_param_kind_t::kind_std_layout, 4, 36, (kernel_param_used[40] << 0)},
-// CHECK-NEXT:  { kernel_param_kind_t::kind_accessor, 4062, 40, (kernel_param_used[41] << 0) | (kernel_param_used[42] << 1) | (kernel_param_used[43] << 2) | (kernel_param_used[44] << 3)},
-// CHECK-NEXT:  { kernel_param_kind_t::kind_accessor, 4062, 52, (kernel_param_used[45] << 0) | (kernel_param_used[46] << 1) | (kernel_param_used[47] << 2) | (kernel_param_used[48] << 3)},
+// CHECK-NEXT:   //--- _ZTSZ4mainE16accessor_in_base
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 0, (param_omit_table[29] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 4, (param_omit_table[30] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 8, (param_omit_table[31] << 0) | (param_omit_table[32] << 1) | (param_omit_table[33] << 2) | (param_omit_table[34] << 3)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 20, (param_omit_table[35] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 24, (param_omit_table[36] << 0) | (param_omit_table[37] << 1) | (param_omit_table[38] << 2) | (param_omit_table[39] << 3)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_std_layout, 4, 36, (param_omit_table[40] << 0)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 40, (param_omit_table[41] << 0) | (param_omit_table[42] << 1) | (param_omit_table[43] << 2) | (param_omit_table[44] << 3)},
+// CHECK-NEXT:   { kernel_param_kind_t::kind_accessor, 4062, 52, (param_omit_table[45] << 0) | (param_omit_table[46] << 1) | (param_omit_table[47] << 2) | (param_omit_table[48] << 3)},
 // CHECK-EMPTY:
 // CHECK-NEXT: };
-//
+
 // CHECK: template <> struct KernelInfo<class first_kernel> {
 // CHECK: template <> struct KernelInfo<::second_namespace::second_kernel<char>> {
 // CHECK: template <> struct KernelInfo<::third_kernel<1, int, ::point<X>>> {
