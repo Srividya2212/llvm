@@ -358,7 +358,7 @@ private:
     int Info = 0;
     // Offset of the captured parameter value in the lambda or function object.
     unsigned Offset = 0;
-    // Count to capture number of parameters in AccessorSampler init method.
+    // Count to capture number of parameters in Accessor/Sampler init method.
     size_t Count = 1;
     KernelParamDesc() = default;
   };
