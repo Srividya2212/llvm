@@ -1814,7 +1814,6 @@ public:
         cast<ClassTemplateSpecializationDecl>(FieldTy->getAsRecordDecl());
     assert(AccTy->getTemplateArgs().size() >= 2 &&
            "Incorrect template args for Accessor Type");
-    auto args = AccTy->getTemplateArgs().size();
     int Dims = static_cast<int>(
         AccTy->getTemplateArgs()[1].getAsIntegral().getExtValue());
     int Info = getAccessTarget(AccTy) | (Dims << 11);
@@ -2710,19 +2709,21 @@ void SYCLIntegrationHeader::emit(raw_ostream &O) {
   O << "// corresponding source\n";
   O << "static constexpr\n";
   O << "const bool kernel_param_used[] = {\n";
-  O << "  //PARAM_USED_TABLE_BEGIN "
-    << "\n";
+  O << "  //PARAM_USED_TABLE_BEGIN \n";
   for (unsigned I = 0; I < KernelDescs.size(); I++) {
     auto &K = KernelDescs[I];
     O << "  //--- " << K.Name << "\n";
+    O << "  ";
     for (unsigned I = 0; I < K.Params.size(); I++) {
       auto &P = K.Params[I];
-      for (unsigned I = 0; I < P.Count; I++){
-        O << "1" << ", ";
+      for (unsigned J = 0; J < P.Count; J++) {
+        O << "1";
+        O << ", ";
       }
     }
+    O << "\n";
   }
-  O << " \n //PARAM_USED_TABLE_END "
+  O << "  //PARAM_USED_TABLE_END "
     << "\n";
   O << "  } \n\n";
 
@@ -2731,20 +2732,25 @@ void SYCLIntegrationHeader::emit(raw_ostream &O) {
   O << "static constexpr\n";
   O << "const kernel_param_desc_t kernel_signatures[] = {\n";
 
+  unsigned CurIndex = 0;
   for (unsigned I = 0; I < KernelDescs.size(); I++) {
     auto &K = KernelDescs[I];
     O << "  //--- " << K.Name << "\n";
-
     for (unsigned I = 0; I < K.Params.size(); I++) {
       auto &P = K.Params[I];
       std::string TyStr = paramKind2Str(P.Kind);
       O << "  { kernel_param_kind_t::" << TyStr << ", ";
-      O << P.Info << ", " << P.Offset << ", " << "("
-        << "kernel_param_used[" << I << "]" << " <<" << " 0" << ")" 
-        << " | " << "(" << "kernel_param_used[" << I << "]" << " <<" << " 1" << ")" 
-        << " | " << "(" << "kernel_param_used[" << I << "]" << " <<" << " 2" << ")"
-        << " | " << "(" << "kernel_param_used[" << I << "]" << " <<" << " 3" << ")"
-        << "},\n";
+      O << P.Info << ", " << P.Offset << ", ";
+      for (unsigned X = 0; X < P.Count; X++) {
+        O << "("
+          << "kernel_param_used[" << CurIndex << "]"
+          << " << " << X << ")";
+        if (X < P.Count - 1)
+          O << " | ";
+        CurIndex = CurIndex + 1;
+      }
+      O << "}";
+      O << ",\n";
     }
     O << "\n";
   }
