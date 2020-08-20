@@ -2105,6 +2105,27 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
       }
   }
 
+  if (const auto *TSD = dyn_cast<ClassTemplateSpecializationDecl>(KernelObj)) {
+    const TemplateArgumentList &Args1 = TSD->getTemplateArgs();
+    for (unsigned I = 0; I < Args1.size(); I++) {
+      const TemplateArgument &Arg = Args1[I];
+      if(Arg.getKind() == TemplateArgument::ArgKind::Type || TemplateArgument::ArgKind::Integral){
+        QualType T = (Arg.getKind() == TemplateArgument::ArgKind::Type)
+                         ? Arg.getAsType()
+                         : Arg.getIntegralType();
+       if (const auto *ET = T->getAs<EnumType>()) {
+          const EnumDecl *ED = ET->getDecl();
+          if (!ED->isScoped() && !ED->isFixed()) {
+                Diag(Args[0]->getExprLoc(), diag::err_sycl_kernel_incorrectly_named) << 2;
+                Diag(ED->getSourceRange().getBegin(), diag::note_entity_declared_at)
+                    << ED;
+            }
+       }                         
+      }
+
+    }
+  }
+      
   SyclKernelFieldChecker Checker(*this);
 
   KernelObjVisitor Visitor{*this};
@@ -2604,7 +2625,7 @@ void SYCLIntegrationHeader::emitForwardClassDecls(
         // Handle Kernel Name Type templated using enum type and value.
         if (const auto *ET = T->getAs<EnumType>()) {
           const EnumDecl *ED = ET->getDecl();
-          if (!checkEnumTemplateParameter(ED, Diag, KernelLocation))
+          //if (!checkEnumTemplateParameter(ED, Diag, KernelLocation))
             emitFwdDecl(O, ED, KernelLocation);
         } else if (Arg.getKind() == TemplateArgument::ArgKind::Type)
           emitForwardClassDecls(O, T, KernelLocation, Printed);
@@ -2664,7 +2685,7 @@ void SYCLIntegrationHeader::emitForwardClassDecls(
             QualType T = TemplateParam->getType();
             if (const auto *ET = T->getAs<EnumType>()) {
               const EnumDecl *ED = ET->getDecl();
-              if (!checkEnumTemplateParameter(ED, Diag, KernelLocation))
+              //if (!checkEnumTemplateParameter(ED, Diag, KernelLocation))
                 emitFwdDecl(O, ED, KernelLocation);
             }
           }
