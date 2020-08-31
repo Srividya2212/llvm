@@ -14,6 +14,7 @@
 #include "clang/AST/QualTypeNames.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/TypeVisitor.h"
 #include "clang/Analysis/CallGraph.h"
 #include "clang/Basic/Attributes.h"
 #include "clang/Basic/Builtins.h"
@@ -2331,6 +2332,34 @@ public:
 
 } // namespace
 
+class SYCLTypeVisitor : public TypeVisitor<SYCLTypeVisitor> {
+  Sema &S;
+  SourceRange Loc;
+  using InnerTypeVisitor = TypeVisitor<SYCLTypeVisitor>;
+
+public:
+  SYCLTypeVisitor(Sema &S, SourceRange Loc) : S(S), Loc(Loc) {}
+
+  // T == KernelParamTy
+  void Visit(QualType T) {
+    if (T.isNull())
+      return;
+    InnerTypeVisitor::Visit(T.getTypePtr()); // TypeVisitor::Visit(const Type
+                                             // *T)
+  }
+
+  // void VisitTemplateTypeParmType(const TemplateTypeParmType*){}
+
+  void VisitEnumType(const EnumType *T) {
+    const EnumDecl *ED = T->getDecl();
+    if (!ED->isScoped() && !ED->isFixed()) {
+      S.Diag(Loc.getBegin(), diag::err_sycl_kernel_incorrectly_named) << 2;
+      S.Diag(ED->getSourceRange().getBegin(), diag::note_entity_declared_at)
+          << ED;
+    }
+  }
+};
+
 void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
                                ArrayRef<const Expr *> Args) {
   const CXXRecordDecl *KernelObj = getKernelObjectType(KernelFunc);
@@ -2351,8 +2380,12 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
 
   SyclKernelFieldChecker FieldChecker(*this);
   SyclKernelUnionChecker UnionChecker(*this);
+
   // check that calling kernel conforms to spec
   QualType KernelParamTy = KernelFunc->getParamDecl(0)->getType();
+  SYCLTypeVisitor KernelTypeVisitor(*this, CallLoc);
+  KernelTypeVisitor.Visit(KernelParamTy);
+
   if (KernelParamTy->isReferenceType()) {
     // passing by reference, so emit warning if not using SYCL 2020
     if (LangOpts.SYCLVersion < 2020)
@@ -2362,7 +2395,6 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
     if (LangOpts.SYCLVersion > 2017)
       Diag(KernelFunc->getLocation(), diag::warn_sycl_pass_by_value_deprecated);
   }
-
   KernelObjVisitor Visitor{*this};
   DiagnosingSYCLKernel = true;
   Visitor.VisitRecordBases(KernelObj, FieldChecker, UnionChecker);
