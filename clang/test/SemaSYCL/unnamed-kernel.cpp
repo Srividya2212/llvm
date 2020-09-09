@@ -11,6 +11,7 @@ namespace namespace1 {
 template <typename T>
 class KernelName;
 }
+void func() {};
 
 struct MyWrapper {
 private:
@@ -27,20 +28,22 @@ public:
     // expected-note@+2 {{InvalidKernelName1 declared here}}
 #endif
     class InvalidKernelName1 {};
+    
     q.submit([&](cl::sycl::handler &h) {
       // expected-note@+1{{in instantiation of function template specialization}}
-      h.single_task<InvalidKernelName1>([] {});
+      h.single_task<InvalidKernelName1>([]{});
     });
 }
 };
 
 int main() {
   cl::sycl::queue q;
+  
 #ifndef __SYCL_UNNAMED_LAMBDA__
   
 #endif
 // expected-note@+1{{in instantiation of function template specialization}}
-  q.submit([&](cl::sycl::handler &h) { h.single_task([] {}); });
+  q.submit([&](cl::sycl::handler &h) { h.single_task(func); });
 
   return 0;
 }
