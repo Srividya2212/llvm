@@ -2332,25 +2332,35 @@ public:
 
 } // namespace
 
-class SYCLTypeVisitor : public TypeVisitor<SYCLTypeVisitor> {
+class SYCLTypeVisitor : public TypeVisitor<SYCLTypeVisitor, bool> {
   Sema &S;
   SourceRange Loc;
-  using InnerTypeVisitor = TypeVisitor<SYCLTypeVisitor>;
+  using InnerTypeVisitor = TypeVisitor<SYCLTypeVisitor, bool>;
 
 public:
   SYCLTypeVisitor(Sema &S, SourceRange Loc) : S(S), Loc(Loc) {}
 
-  void Visit(QualType T) {
+  bool Visit(QualType T) {
     if (T.isNull())
-      return;
+      return false;
     InnerTypeVisitor::Visit(T.getTypePtr());
   }
 
-  void VisitEnumType(const EnumType *T);
+  #define TYPE(Class, Parent) \
+    bool Visit##Class##Type(const Class##Type *);
+  #define ABSTRACT_TYPE(Class, Parent) \
+    bool Visit##Class##Type(const Class##Type *) { return false; }
+  #define NON_CANONICAL_TYPE(Class, Parent) \
+    bool Visit##Class##Type(const Class##Type *) { return false; }
+  #include "clang/AST/TypeNodes.inc"
+
+  bool VisitTagDecl(const TagDecl *Tag);
+  bool VisitNestedNameSpecifier(NestedNameSpecifier *NNS);
 
   };
 
-void SYCLTypeVisitor::VisitEnumType(const EnumType *T) {
+
+bool SYCLTypeVisitor::VisitEnumType(const EnumType *T) {
     const EnumDecl *ED = T->getDecl();
     if (!ED->isScoped() && !ED->isFixed()) {
       S.Diag(Loc.getBegin(), diag::err_sycl_kernel_incorrectly_named) << 2;
@@ -2360,9 +2370,265 @@ void SYCLTypeVisitor::VisitEnumType(const EnumType *T) {
 }
 
 
+bool SYCLTypeVisitor::VisitRecordType(const RecordType* T) {
+  return VisitTagDecl(T->getDecl());
+}
+
+bool SYCLTypeVisitor::VisitTagDecl(const TagDecl *Tag) {
+  const bool KernelNameIsMissing = Tag->getName().empty();
+  if (KernelNameIsMissing) {
+    S.Diag(Loc.getBegin(), diag::err_sycl_kernel_incorrectly_named) << 0;
+    return true;
+  }else {
+    if (Tag->isCompleteDefinition())
+        S.Diag(Loc.getBegin(),
+                   diag::err_sycl_kernel_incorrectly_named)
+          << /* kernel name is not globally-visible */ 1;
+    else
+              S.Diag(Loc.getBegin(), diag::warn_sycl_implicit_decl);
+            S.Diag(Tag->getSourceRange().getBegin(),
+                        diag::note_previous_decl)
+                << Tag->getName();
+  return true;
+  }
+}
+
+
+bool SYCLTypeVisitor::VisitBuiltinType(const BuiltinType*) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitComplexType(const ComplexType* T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitPointerType(const PointerType* T) {
+  return Visit(T->getPointeeType());
+}
+
+bool SYCLTypeVisitor::VisitBlockPointerType(
+                                                    const BlockPointerType* T) {
+  return Visit(T->getPointeeType());
+}
+
+bool SYCLTypeVisitor::VisitLValueReferenceType(
+                                                const LValueReferenceType* T) {
+  return Visit(T->getPointeeType());
+}
+
+bool SYCLTypeVisitor::VisitRValueReferenceType(
+                                                const RValueReferenceType* T) {
+  return Visit(T->getPointeeType());
+}
+
+bool SYCLTypeVisitor::VisitMemberPointerType(
+                                                  const MemberPointerType* T) {
+  return Visit(T->getPointeeType()) || Visit(QualType(T->getClass(), 0));
+}
+
+bool SYCLTypeVisitor::VisitConstantArrayType(
+                                                  const ConstantArrayType* T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitIncompleteArrayType(
+                                                 const IncompleteArrayType* T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitVariableArrayType(
+                                                   const VariableArrayType* T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitDependentSizedArrayType(
+                                            const DependentSizedArrayType* T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitDependentSizedExtVectorType(
+                                         const DependentSizedExtVectorType* T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitDependentSizedMatrixType(
+    const DependentSizedMatrixType *T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitDependentAddressSpaceType(
+    const DependentAddressSpaceType *T) {
+  return Visit(T->getPointeeType());
+}
+
+bool SYCLTypeVisitor::VisitVectorType(const VectorType* T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitDependentVectorType(
+    const DependentVectorType *T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitExtVectorType(const ExtVectorType* T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitConstantMatrixType(
+    const ConstantMatrixType *T) {
+  return Visit(T->getElementType());
+}
+
+bool SYCLTypeVisitor::VisitFunctionProtoType(
+                                                  const FunctionProtoType* T) {
+  for (const auto &A : T->param_types()) {
+    if (Visit(A))
+      return true;
+  }
+
+  return Visit(T->getReturnType());
+}
+
+bool SYCLTypeVisitor::VisitFunctionNoProtoType(
+                                               const FunctionNoProtoType* T) {
+  return Visit(T->getReturnType());
+}
+
+bool SYCLTypeVisitor::VisitUnresolvedUsingType(
+                                                  const UnresolvedUsingType*) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitTypeOfExprType(const TypeOfExprType*) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitTypeOfType(const TypeOfType* T) {
+  return Visit(T->getUnderlyingType());
+}
+
+bool SYCLTypeVisitor::VisitDecltypeType(const DecltypeType*) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitUnaryTransformType(
+                                                    const UnaryTransformType*) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitAutoType(const AutoType *T) {
+  return Visit(T->getDeducedType());
+}
+
+bool SYCLTypeVisitor::VisitDeducedTemplateSpecializationType(
+    const DeducedTemplateSpecializationType *T) {
+  return Visit(T->getDeducedType());
+}
+
+
+
+
+/*bool SYCLTypeVisitor::VisitEnumType(const EnumType* T) {
+  return VisitTagDecl(T->getDecl());
+}*/
+
+bool SYCLTypeVisitor::VisitTemplateTypeParmType(
+                                                 const TemplateTypeParmType*) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitSubstTemplateTypeParmPackType(
+                                        const SubstTemplateTypeParmPackType *) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitTemplateSpecializationType(
+                                            const TemplateSpecializationType*) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitInjectedClassNameType(
+                                              const InjectedClassNameType* T) {
+  return VisitTagDecl(T->getDecl());
+}
+
+bool SYCLTypeVisitor::VisitDependentNameType(
+                                                   const DependentNameType* T) {
+  return VisitNestedNameSpecifier(T->getQualifier());
+}
+
+bool SYCLTypeVisitor::VisitDependentTemplateSpecializationType(
+                                 const DependentTemplateSpecializationType* T) {
+  if (auto *Q = T->getQualifier())
+    return VisitNestedNameSpecifier(Q);
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitPackExpansionType(
+                                                   const PackExpansionType* T) {
+  return Visit(T->getPattern());
+}
+
+bool SYCLTypeVisitor::VisitObjCObjectType(const ObjCObjectType *) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitObjCInterfaceType(
+                                                   const ObjCInterfaceType *) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitObjCObjectPointerType(
+                                                const ObjCObjectPointerType *) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitAtomicType(const AtomicType* T) {
+  return Visit(T->getValueType());
+}
+
+bool SYCLTypeVisitor::VisitPipeType(const PipeType* T) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitExtIntType(const ExtIntType *T) {
+  return false;
+}
+
+bool SYCLTypeVisitor::VisitDependentExtIntType(
+    const DependentExtIntType *T) {
+  return false;
+}
+
+
+
+
+bool SYCLTypeVisitor::VisitNestedNameSpecifier(
+                                                    NestedNameSpecifier *NNS) {
+  assert(NNS);
+  if (NNS->getPrefix() && VisitNestedNameSpecifier(NNS->getPrefix()))
+    return true;
+
+  switch (NNS->getKind()) {
+  case NestedNameSpecifier::Identifier:
+  case NestedNameSpecifier::Namespace:
+  case NestedNameSpecifier::NamespaceAlias:
+  case NestedNameSpecifier::Global:
+  case NestedNameSpecifier::Super:
+    return false;
+
+  case NestedNameSpecifier::TypeSpec:
+  case NestedNameSpecifier::TypeSpecWithTemplate:
+    return Visit(QualType(NNS->getAsType(), 0));
+  }
+  llvm_unreachable("Invalid NestedNameSpecifier::Kind!");
+}
+
+
 void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
                                ArrayRef<const Expr *> Args) {
   const CXXRecordDecl *KernelObj = getKernelObjectType(KernelFunc);
+  QualType KernelNameType = calculateKernelNameType(getASTContext(),KernelFunc);
   if (!KernelObj) {
     Diag(Args[0]->getExprLoc(), diag::err_sycl_kernel_not_function_object);
     KernelFunc->setInvalidDecl();
@@ -2383,8 +2649,9 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
 
   // check that calling kernel conforms to spec
   QualType KernelParamTy = KernelFunc->getParamDecl(0)->getType();
+
   SYCLTypeVisitor KernelTypeVisitor(*this, CallLoc);
-  KernelTypeVisitor.Visit(KernelParamTy);
+  (void)KernelTypeVisitor.Visit(KernelNameType);
 
   if (KernelParamTy->isReferenceType()) {
     // passing by reference, so emit warning if not using SYCL 2020
@@ -2395,6 +2662,17 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
     if (LangOpts.SYCLVersion > 2017)
       Diag(KernelFunc->getLocation(), diag::warn_sycl_pass_by_value_deprecated);
   }
+
+/*
+  if (const auto *TSD = dyn_cast<ClassTemplateSpecializationDecl>(KernelObj)) {
+    const TemplateArgumentList &Args = TSD->getTemplateArgs();
+    for (unsigned I = 0; I < Args.size(); I++) {
+      const TemplateArgument &Arg = Args[I];
+      //CheckTemplateArgument(&Arg, CallLoc);
+    }
+  }
+*/
+
   KernelObjVisitor Visitor{*this};
   DiagnosingSYCLKernel = true;
   Visitor.VisitRecordBases(KernelObj, FieldChecker, UnionChecker);
@@ -2402,6 +2680,11 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
   DiagnosingSYCLKernel = false;
   if (!FieldChecker.isValid() || !UnionChecker.isValid())
     KernelFunc->setInvalidDecl();
+}
+
+void Sema::CheckTemplateArgument(const TemplateArgument *Arg, SourceRange CallLoc) {
+   SYCLTypeVisitor KernelTypeVisitor(*this, CallLoc);
+    (void)KernelTypeVisitor.Visit(Arg->getAsType());
 }
 
 // Generates the OpenCL kernel using KernelCallerFunc (kernel caller
@@ -2768,22 +3051,7 @@ void SYCLIntegrationHeader::emitFwdDecl(raw_ostream &O, const Decl *D,
           // defined class constituting the kernel name is not globally
           // accessible - contradicts the spec
           const bool KernelNameIsMissing = TD->getName().empty();
-          if (KernelNameIsMissing) {
-            Diag.Report(KernelLocation, diag::err_sycl_kernel_incorrectly_named)
-                << /* kernel name is missing */ 0;
-            // Don't emit note if kernel name was completely omitted
-          } else {
-            if (TD->isCompleteDefinition())
-              Diag.Report(KernelLocation,
-                          diag::err_sycl_kernel_incorrectly_named)
-                  << /* kernel name is not globally-visible */ 1;
-            else
-              Diag.Report(KernelLocation, diag::warn_sycl_implicit_decl);
-            Diag.Report(D->getSourceRange().getBegin(),
-                        diag::note_previous_decl)
-                << TD->getName();
-          }
-        }
+        } 
       }
       break;
     }
