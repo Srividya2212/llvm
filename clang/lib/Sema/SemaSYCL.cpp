@@ -14,6 +14,7 @@
 #include "clang/AST/QualTypeNames.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/TemplateArgumentVisitor.h"
 #include "clang/AST/TypeVisitor.h"
 #include "clang/Analysis/CallGraph.h"
 #include "clang/Basic/Attributes.h"
@@ -2332,10 +2333,12 @@ public:
 
 } // namespace
 
-class SYCLTypeVisitor : public TypeVisitor<SYCLTypeVisitor, bool> {
+class SYCLTypeVisitor : public TypeVisitor<SYCLTypeVisitor, bool>,
+                        public ConstTemplateArgumentVisitor<SYCLTypeVisitor> {
   Sema &S;
   SourceLocation Loc;
   using InnerTypeVisitor = TypeVisitor<SYCLTypeVisitor, bool>;
+  using InnerTAVisitor = ConstTemplateArgumentVisitor<SYCLTypeVisitor>;
 
 public:
   SYCLTypeVisitor(Sema &S, SourceLocation Loc) : S(S), Loc(Loc) {}
@@ -2343,12 +2346,33 @@ public:
   bool Visit(QualType T) {
     if (T.isNull())
       return false;
+    const CXXRecordDecl *RD = T->getAsCXXRecordDecl();
+    if (!RD)
+      return false;
+    if (const auto *TSD = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
+      const TemplateArgumentList &Args = TSD->getTemplateArgs();
+      for (unsigned I = 0; I < Args.size(); I++) {
+        const TemplateArgument &Arg = Args[I];
+        Visit(Arg);
+      }
+    }
     InnerTypeVisitor::Visit(T.getTypePtr());
   }
 
-  bool VisitRecordType(const RecordType* T) {
-  return VisitTagDecl(T->getDecl());
-}
+  void Visit(const TemplateArgument &TA) { InnerTAVisitor::Visit(TA); }
+
+  bool VisitEnumType(const EnumType *T) {
+    const EnumDecl *ED = T->getDecl();
+    if (!ED->isScoped() && !ED->isFixed()) {
+      S.Diag(Loc, diag::err_sycl_kernel_incorrectly_named) << 2;
+      S.Diag(ED->getSourceRange().getBegin(), diag::note_entity_declared_at)
+          << ED;
+    }
+  }
+
+  bool VisitRecordType(const RecordType *T) {
+    return VisitTagDecl(T->getDecl());
+  }
 
 bool VisitTagDecl(const TagDecl *Tag) {
   
@@ -2375,6 +2399,32 @@ bool VisitTagDecl(const TagDecl *Tag) {
   
 }
 
+void VisitTypeTemplateArgument(const TemplateArgument &TA) {
+  QualType T = TA.getAsType();
+  if (const auto *ET = T->getAs<EnumType>()) {
+    VisitEnumType(ET);
+  }
+}
+void VisitIntegralTemplateArgument(const TemplateArgument &TA) {
+  QualType T = TA.getIntegralType();
+  if (const EnumType *ET = T->getAs<EnumType>()) {
+    VisitEnumType(ET);
+  }
+}
+
+void VisitTemplateTemplateArgument(const TemplateArgument &TA) {
+  TemplateDecl *TD = TA.getAsTemplate().getAsTemplateDecl();
+  TemplateParameterList *TemplateParams = TD->getTemplateParameters();
+  for (NamedDecl *P : *TemplateParams) {
+    if (NonTypeTemplateParmDecl *TemplateParam =
+            dyn_cast<NonTypeTemplateParmDecl>(P)) {
+      QualType T = TemplateParam->getType();
+      if (const EnumType *ET = T->getAs<EnumType>()) {
+        VisitEnumType(ET);
+      }
+    }
+  }
+}
 };
 
 /*
@@ -2783,6 +2833,7 @@ static void emitWithoutAnonNamespaces(llvm::raw_ostream &OS, StringRef Source) {
   OS << Source;
 }
 
+/*
 static bool checkEnumTemplateParameter(const EnumDecl *ED,
                                        DiagnosticsEngine &Diag,
                                        SourceLocation KernelLocation) {
@@ -2794,6 +2845,7 @@ static bool checkEnumTemplateParameter(const EnumDecl *ED,
   }
   return false;
 }
+*/
 
 // Emits a forward declaration
 void SYCLIntegrationHeader::emitFwdDecl(raw_ostream &O, const Decl *D,
