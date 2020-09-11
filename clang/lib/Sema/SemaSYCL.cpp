@@ -2350,7 +2350,7 @@ public:
     const CXXRecordDecl *RD = T->getAsCXXRecordDecl();
     if (!RD)
       return false;
-    // only functor passed as kernel caller func arg. no kernel name set.
+    // If KernelNameType has template args
     if (const auto *TSD = dyn_cast<ClassTemplateSpecializationDecl>(RD)) {
       const TemplateArgumentList &Args = TSD->getTemplateArgs();
       for (unsigned I = 0; I < Args.size(); I++) {
