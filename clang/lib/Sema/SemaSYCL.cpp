@@ -2368,11 +2368,9 @@ public:
     const EnumDecl *ED = T->getDecl();
     if (!ED->isScoped() && !ED->isFixed()) {
       S.Diag(Loc, diag::err_sycl_kernel_incorrectly_named)
-          << 2; // kernel name is invalid. Unscoped enum requires fixed
-                // underlying type
+          << 2;
       S.Diag(ED->getSourceRange().getBegin(),
-             diag::note_entity_declared_at) //{{'unscoped_enum_no_type_set'
-                                            //declared here}}
+             diag::note_entity_declared_at)                                             
           << ED;
       return true;
     }
@@ -2384,27 +2382,27 @@ public:
 
 bool VisitTagDecl(const TagDecl *Tag) {
   
-  bool UnnamedLambda = S.getASTContext().getLangOpts().SYCLUnnamedLambda;
-  if(Tag && !UnnamedLambda){
+  bool UnnamedLambdaEnabled = S.getASTContext().getLangOpts().SYCLUnnamedLambda;
+  if(Tag && !UnnamedLambdaEnabled){
     const bool KernelNameIsMissing = Tag->getName().empty();
-    if (KernelNameIsMissing) {
-      S.Diag(Loc, diag::err_sycl_kernel_incorrectly_named)
-          << /* kernel name is missing */ 0;
-      return true;
-  }else {
-    if (Tag->isCompleteDefinition())
-      S.Diag(Loc, diag::err_sycl_kernel_incorrectly_named)
-          << /* kernel name is not globally-visible */ 1;
-    else
+        if (KernelNameIsMissing) {
+          S.Diag(Loc, diag::err_sycl_kernel_incorrectly_named)
+              << /* kernel name is missing */ 0;
+          return true;
+          }else {
+            if (Tag->isCompleteDefinition())
+              S.Diag(Loc, diag::err_sycl_kernel_incorrectly_named)
+                  << /* kernel name is not globally-visible */ 1;
+            else
               S.Diag(Loc, diag::warn_sycl_implicit_decl);
 
-    S.Diag(Tag->getSourceRange().getBegin(),
-           diag::note_previous_decl) // Note:InvalidKernelName2 declared here
-        << Tag->getName();
-    return true;
-  }
+            S.Diag(Tag->getSourceRange().getBegin(),
+                  diag::note_previous_decl) 
+                << Tag->getName();
+            return true;
+          }
 
-  }
+}
   
 }
 
@@ -2439,17 +2437,6 @@ bool VisitTemplateTemplateArgument(const TemplateArgument &TA) {
   }
 }
 };
-
-/*
-bool SYCLTypeVisitor::VisitEnumType(const EnumType *T) {
-    const EnumDecl *ED = T->getDecl();
-    if (!ED->isScoped() && !ED->isFixed()) {
-      S.Diag(Loc.getBegin(), diag::err_sycl_kernel_incorrectly_named) << 2;
-      S.Diag(ED->getSourceRange().getBegin(), diag::note_entity_declared_at)
-          << ED;
-    }
-}
-*/
 
 void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
                                ArrayRef<const Expr *> Args) {
@@ -2489,16 +2476,6 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
       Diag(KernelFunc->getLocation(), diag::warn_sycl_pass_by_value_deprecated);
   }
 
-/*
-  if (const auto *TSD = dyn_cast<ClassTemplateSpecializationDecl>(KernelObj)) {
-    const TemplateArgumentList &Args = TSD->getTemplateArgs();
-    for (unsigned I = 0; I < Args.size(); I++) {
-      const TemplateArgument &Arg = Args[I];
-      //CheckTemplateArgument(&Arg, CallLoc);
-    }
-  }
-*/
-
   KernelObjVisitor Visitor{*this};
   DiagnosingSYCLKernel = true;
   Visitor.VisitRecordBases(KernelObj, FieldChecker, UnionChecker);
@@ -2508,12 +2485,6 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
     KernelFunc->setInvalidDecl();
 }
 
-/*
-void Sema::CheckTemplateArgument(const TemplateArgument *Arg, SourceRange CallLoc) {
-   SYCLTypeVisitor KernelTypeVisitor(*this, CallLoc);
-    (void)KernelTypeVisitor.Visit(Arg->getAsType());
-}
-*/
 
 // Generates the OpenCL kernel using KernelCallerFunc (kernel caller
 // function) defined is SYCL headers.
@@ -2846,19 +2817,6 @@ static void emitWithoutAnonNamespaces(llvm::raw_ostream &OS, StringRef Source) {
   OS << Source;
 }
 
-/*
-static bool checkEnumTemplateParameter(const EnumDecl *ED,
-                                       DiagnosticsEngine &Diag,
-                                       SourceLocation KernelLocation) {
-  if (!ED->isScoped() && !ED->isFixed()) {
-    Diag.Report(KernelLocation, diag::err_sycl_kernel_incorrectly_named) << 2;
-    Diag.Report(ED->getSourceRange().getBegin(), diag::note_entity_declared_at)
-        << ED;
-    return true;
-  }
-  return false;
-}
-*/
 
 // Emits a forward declaration
 void SYCLIntegrationHeader::emitFwdDecl(raw_ostream &O, const Decl *D,
@@ -2991,7 +2949,6 @@ void SYCLIntegrationHeader::emitForwardClassDecls(
         // Handle Kernel Name Type templated using enum type and value.
         if (const auto *ET = T->getAs<EnumType>()) {
           const EnumDecl *ED = ET->getDecl();
-         // if (!checkEnumTemplateParameter(ED, Diag, KernelLocation))
             emitFwdDecl(O, ED, KernelLocation);
         } else if (Arg.getKind() == TemplateArgument::ArgKind::Type)
           emitForwardClassDecls(O, T, KernelLocation, Printed);
@@ -3051,7 +3008,6 @@ void SYCLIntegrationHeader::emitForwardClassDecls(
             QualType T = TemplateParam->getType();
             if (const auto *ET = T->getAs<EnumType>()) {
               const EnumDecl *ED = ET->getDecl();
-             // if (!checkEnumTemplateParameter(ED, Diag, KernelLocation))
                 emitFwdDecl(O, ED, KernelLocation);
             }
           }
