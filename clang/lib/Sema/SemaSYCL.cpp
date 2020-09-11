@@ -2412,6 +2412,8 @@ bool VisitTypeTemplateArgument(const TemplateArgument &TA) {
   QualType T = TA.getAsType();
   if (const auto *ET = T->getAs<EnumType>()) {
     VisitEnumType(ET);
+  } else {
+    Visit(T);
   }
   return false;
 }
