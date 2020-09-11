@@ -2476,7 +2476,7 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
   // check that calling kernel conforms to spec
   QualType KernelParamTy = KernelFunc->getParamDecl(0)->getType();
 
-  SYCLTypeVisitor KernelTypeVisitor(*this, KernelObj->getLocation());
+  SYCLTypeVisitor KernelTypeVisitor(*this, Args[0]->getExprLoc());
   (void)KernelTypeVisitor.Visit(KernelNameType);
 
   if (KernelParamTy->isReferenceType()) {
