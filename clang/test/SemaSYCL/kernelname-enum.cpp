@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -fsycl -fsycl-is-device -fsycl-int-header=%t.h -fsyntax-only -Wno-sycl-2017-compat -verify %s
-// expected-error@Inputs/sycl.hpp:214 1+{{kernel name is invalid. Unscoped enum requires fixed underlying type}}
+// expected-error@Inputs/sycl.hpp:214 2{{kernel name is invalid. Unscoped enum requires fixed underlying type}}
 #include "Inputs/sycl.hpp"
 
 enum unscoped_enum_int : int {
