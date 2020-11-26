@@ -3044,6 +3044,11 @@ void Sema::CheckSYCLKernelCall(FunctionDecl *KernelFunc, SourceRange CallLoc,
         Diag(LC.getLocation(), diag::err_implicit_this_capture);
         Diag(CallLoc.getBegin(), diag::note_used_here);
         KernelFunc->setInvalidDecl();
+      } else if(LC.isImplicit() && LC.capturesVariable()){
+        LC.getCapturedVar()->getNameAsString();
+        if(LC.getCapturedVar()->isConstexpr()){
+          Diag(LC.getLocation(), diag::warn_constexpr_kernel_arg);
+        }
       }
   }
 
