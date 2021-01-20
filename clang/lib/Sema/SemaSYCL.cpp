@@ -3026,6 +3026,7 @@ public:
     const DeclContext *DeclCtx = Tag->getDeclContext();
     if (DeclCtx && !UnnamedLambdaEnabled) {
       auto *NameSpace = dyn_cast_or_null<NamespaceDecl>(DeclCtx);
+      
       if (NameSpace && NameSpace->isStdNamespace()) {
         S.Diag(KernelInvocationFuncLoc, diag::err_sycl_kernel_incorrectly_named)
             << KernelNameType;
@@ -3036,9 +3037,16 @@ public:
         return;
       }
       if (!DeclCtx->isTranslationUnit() && !isa<NamespaceDecl>(DeclCtx)) {
-        // Allow Structs since they are public by default
-        if (Tag->isStruct()) {
-          return;
+        while(!DeclCtx->getParent()->isTranslationUnit()){
+            auto *NameDecl = dyn_cast_or_null<NamedDecl>(DeclCtx);
+            // If the current DeclContext has a name, continue to find its parent DeclContext
+            if(!NameDecl->getName().empty())
+                DeclCtx = DeclCtx->getParent();
+            else
+            {
+              /* Not sure what error to throw here */ 
+            }
+            
         }
         const bool KernelNameIsMissing = Tag->getName().empty();
         if (KernelNameIsMissing) {
